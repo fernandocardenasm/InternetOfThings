@@ -14,16 +14,21 @@ public class MainActivity extends ListActivity {
 //    private BluetoothAdapter mBluetoothAdapter;
 
     private BTLE[] mBTLEDevices;
+    int numDevices = 2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mBTLEDevices[0].setDeviceAddress("MAC");
-        mBTLEDevices[0].setFriendlyName("ALO");
-        mBTLEDevices[1].setDeviceAddress("MAC100");
-        mBTLEDevices[1].setFriendlyName("ALO100");
+        mBTLEDevices = new BTLE[numDevices];
+
+        for(int i = 0; i < numDevices; i++){
+            BTLE device = new BTLE();
+            device.setFriendlyName("AAA");
+            device.setDeviceAddress("MAC100");
+            mBTLEDevices[i] = device;
+        }
 
         BTLEAdapter btleAdapter = new BTLEAdapter(this, mBTLEDevices);
         setListAdapter(btleAdapter);

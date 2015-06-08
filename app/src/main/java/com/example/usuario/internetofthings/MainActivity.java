@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -143,6 +144,21 @@ public class MainActivity extends ListActivity {
         super.onActivityResult(requestCode, resultCode, data);
     }
 
+    @Override
+    protected void onListItemClick(ListView l, View v, int position, long id) {
+        final BluetoothDevice device = getDevice(position);
+        if (device == null) return;
+        final Intent intent = new Intent(this, DeviceControlActivity.class);
+        intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_NAME, device.getName());
+        intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
+        if (mScanning) {
+            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            mScanning = false;
+        }
+
+        startActivity(intent);
+    }
+
     private void scanLeDevice(final boolean enable) {
         if (enable) {
             // Stops scanning after a pre-defined scan period.
@@ -195,7 +211,7 @@ public class MainActivity extends ListActivity {
     public void addDevice(BluetoothDevice device) {
         if(!mLeDevices.contains(device)) {
             mLeDevices.add(device);
-            Toast.makeText(MainActivity.this, "Add", Toast.LENGTH_SHORT).show();
+            //Toast.makeText(MainActivity.this, "Add", Toast.LENGTH_SHORT).show();
         }
     }
     public BluetoothDevice getDevice(int position) {

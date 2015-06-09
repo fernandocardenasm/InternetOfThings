@@ -4,11 +4,17 @@ import android.app.Activity;
 import android.app.ListActivity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ListView;
@@ -17,21 +23,37 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.List;
 
 
 public class MainActivity extends ListActivity {
 
+    //Codes taken from:
+    //http://toastdroid.com/2014/09/22/android-bluetooth-low-energy-tutorial/
+    //https://developer.android.com/guide/topics/connectivity/bluetooth-le.html
+    //https://android.googlesource.com/platform/development/+/7167a054a8027f75025c865322fa84791a9b3bd1/samples/BluetoothLeGatt/src/com/example/bluetooth/le?autodive=0%2F
+
     // Initializes Bluetooth adapter.
+
+    private final String TAG = MainActivity.class.getSimpleName();
 
     private BluetoothAdapter mBluetoothAdapter;
     private boolean mScanning;
     private Handler mHandler;
     private LeDeviceListAdapter mLeDeviceListAdapter;
+    BluetoothGatt bluetoothGatt;
+    private String mDeviceName;
+    private String mDeviceAddress;
 
     private Button mButtonScan;
     private Button mButtonStop;
     private ProgressBar mProgressBar;
     private TextView mTextView;
+
+    private final String LIST_NAME = "NAME";
+    private final String LIST_UUID = "UUID";
+
+    String serviceData;
 
 
     private static final int REQUEST_ENABLE_BT = 1;
@@ -39,7 +61,6 @@ public class MainActivity extends ListActivity {
     private static final long SCAN_PERIOD = 30000;
 
     ArrayList<BluetoothDevice> mLeDevices;
-    private BTLE[] mBTLEDevices;
     int numDevices = 2;
 
     @Override
@@ -61,6 +82,7 @@ public class MainActivity extends ListActivity {
         mProgressBar.setVisibility(View.INVISIBLE);
         mButtonStop.setEnabled(false);
 
+        serviceData = "";
 
         // Checks if Bluetooth is supported on the device.
         if (mBluetoothAdapter == null) {
@@ -148,7 +170,11 @@ public class MainActivity extends ListActivity {
     protected void onListItemClick(ListView l, View v, int position, long id) {
         final BluetoothDevice device = getDevice(position);
         if (device == null) return;
-        final Intent intent = new Intent(this, DeviceControlActivity.class);
+
+        mDeviceAddress = device.getAddress();
+        mDeviceName = device.getName();
+        /*final Intent intent = new Intent(this, DeviceControlActivity.class);
+
         intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_NAME, device.getName());
         intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
         if (mScanning) {
@@ -157,6 +183,10 @@ public class MainActivity extends ListActivity {
         }
 
         startActivity(intent);
+        */
+        mBluetoothAdapter.stopLeScan(mLeScanCallback);
+
+        bluetoothGatt = device.connectGatt(MainActivity.this, false, btleGattCallback);
     }
 
     private void scanLeDevice(final boolean enable) {
@@ -219,6 +249,90 @@ public class MainActivity extends ListActivity {
     }
     public void clear() {
         mLeDevices.clear();
+    }
+
+    private final BluetoothGattCallback btleGattCallback = new BluetoothGattCallback() {
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt, final BluetoothGattCharacteristic characteristic) {
+            // this will get called anytime you perform a read or write characteristic operation
+
+        }
+
+        @Override
+        public void onConnectionStateChange(final BluetoothGatt gatt, final int status, final int newState) {
+            // this will get called when a device connects or disconnects
+            //
+            if (newState== BluetoothProfile.STATE_CONNECTED){
+                Log.d(TAG, "Si");
+                bluetoothGatt.discoverServices();
+            }
+            else{
+                Log.d(TAG, "NO");
+            }
+        }
+
+        @Override
+        public void onServicesDiscovered(final BluetoothGatt gatt, final int status) {
+            // this will get called after the client initiates a            BluetoothGatt.discoverServices() call
+            String cadenaServices = getServicesCharac();
+            String cadenaBroad = getBroadcastContent();
+            // For all other profiles, writes the data formatted in HEX.
+
+            final Intent intent = new Intent(MainActivity.this, DeviceControlActivity.class);
+
+            intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_NAME, mDeviceName);
+            intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_ADDRESS, mDeviceAddress);
+            intent.putExtra(DeviceControlActivity.EXTRAS_SERVICES, cadenaServices);
+            intent.putExtra(DeviceControlActivity.EXTRAS_BROAD, cadenaBroad);
+
+            startActivity(intent);
+        }
+    };
+
+    private String getServicesCharac(){
+        String cadenaServices = "";
+
+        List<BluetoothGattService> services = bluetoothGatt.getServices();
+        List<BluetoothGattCharacteristic> characteristics;
+        //int i = 0;
+        for (BluetoothGattService service: services){
+            cadenaServices = cadenaServices+"Service:\n" + service.getUuid().toString();
+            characteristics = service.getCharacteristics();
+
+            for (int i = 0; i < characteristics.size(); i++){
+                cadenaServices = cadenaServices +"\nCharacteristic:"+ characteristics.get(i).getUuid().toString();
+            }
+
+            //Log.d(TAG,"Service: " + service.toString() + "Characteristic: " + service.getCharacteristics().toString() + "\n");
+        }
+        Log.d(TAG, "Cadena Services:"+cadenaServices);
+
+        return cadenaServices;
+    }
+
+    private String getBroadcastContent(){
+        List<BluetoothGattService> services = bluetoothGatt.getServices();
+        List<BluetoothGattCharacteristic> characteristics;
+
+        String cadena = "";
+        int i = 0;
+        for (BluetoothGattService service:services){
+            characteristics = service.getCharacteristics();
+            byte[] data = characteristics.get(i).getValue();
+            if (data != null && data.length > 0) {
+                final StringBuilder stringBuilder = new StringBuilder(data.length);
+                for(byte byteChar : data)
+                    stringBuilder.append(String.format("%02X ", byteChar));
+                //intent.putExtra(EXTRA_DATA, new String(data) + "\n" + stringBuilder.toString());
+                cadena = cadena + new String(data)+"\n"+stringBuilder.toString();
+                i++;
+            }
+        }
+
+        Log.d(TAG, "Cadena:"+cadena);
+
+        return cadena;
     }
 
 }

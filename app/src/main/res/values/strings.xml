@@ -20,4 +20,6 @@
     <string name="unknown_characteristic">Unknown Characteristic</string>
     <string name="menu_connect">Connect</string>
     <string name="menu_disconnect">Disconnect</string>
+    <string name="label_services">Services</string>
+    <string name="no_services">No services displayed</string>
 </resources>
